@@ -2,8 +2,8 @@
 '''
 mavlink python utility functions
 
-Copyright Andrew Tridgell 2011
-Released under GNU GPL version 3 or later
+Copyright Andrew Tridgell 2011-2019
+Released under GNU LGPL version 3 or later
 '''
 from __future__ import print_function
 from builtins import object
@@ -1155,7 +1155,7 @@ class mavtcp(mavfile):
                  autoreconnect=False,
                  source_system=255,
                  source_component=0,
-                 retries=3,
+                 retries=6,
                  use_native=default_native):
         a = device.split(':')
         if len(a) != 2:
@@ -1229,6 +1229,8 @@ class mavtcp(mavfile):
                 self.reconnect()
             except socket.error as e:
                 pass
+        if self.port is None:
+            return
         try:
             self.port.send(buf)
         except socket.error as e:
@@ -1458,6 +1460,8 @@ class mavmmaplog(mavlogfile):
                 mtype = u_ord(self.data_map[ofs+13])
                 mlen += 8
             elif marker == MARKER_V2:
+                if ofs+8+10 > self.data_len:
+                    break
                 mtype = u_ord(self.data_map[ofs+15]) | (u_ord(self.data_map[ofs+16])<<8) | (u_ord(self.data_map[ofs+17])<<16)
                 mlen += 12
                 incompat_flags = u_ord(self.data_map[ofs+10])
@@ -1865,7 +1869,8 @@ mode_mapping_apm = {
     10 : 'AUTO',
     11 : 'RTL',
     12 : 'LOITER',
-    14 : 'LAND',
+    13 : 'TAKEOFF',
+    14 : 'AVOID_ADSB',
     15 : 'GUIDED',
     16 : 'INITIALISING',
     17 : 'QSTABILIZE',
@@ -1874,6 +1879,7 @@ mode_mapping_apm = {
     20 : 'QLAND',
     21 : 'QRTL',
     22 : 'QAUTOTUNE',
+    23 : 'QACRO',
     }
 mode_mapping_acm = {
     0 : 'STABILIZE',
@@ -1899,6 +1905,7 @@ mode_mapping_acm = {
     21 : 'SMART_RTL',
     22 : 'FLOWHOLD',
     23 : 'FOLLOW',
+    24 : 'ZIGZAG',
 }
 mode_mapping_rover = {
     0 : 'MANUAL',
@@ -1907,6 +1914,8 @@ mode_mapping_rover = {
     3 : 'STEERING',
     4 : 'HOLD',
     5 : 'LOITER',
+    6 : 'FOLLOW',
+    7 : 'SIMPLE',
     10 : 'AUTO',
     11 : 'RTL',
     12 : 'SMART_RTL',
@@ -1918,6 +1927,7 @@ mode_mapping_tracker = {
     0 : 'MANUAL',
     1 : 'STOP',
     2 : 'SCAN',
+    4 : 'GUIDED',
     10 : 'AUTO',
     16 : 'INITIALISING'
     }
@@ -2308,7 +2318,7 @@ def dump_message_verbose(f, m):
     try:
         # __getattr__ may be overridden on m, thus this try/except
         timestamp = m._timestamp
-    except IOError as e:
+    except AttributeError as e:
         timestamp = ""
     if timestamp != "":
         timestamp = "%s.%02u: " % (

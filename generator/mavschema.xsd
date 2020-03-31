@@ -100,9 +100,10 @@
     <xs:enumeration value="deg/2"/>    <!-- degrees/2 required from dagar for HIGH_LATENCY2 message-->
     <xs:enumeration value="deg/s"/>    <!-- degrees per second -->
     <xs:enumeration value="cdeg"/>     <!-- centidegrees -->
+    <xs:enumeration value="cdeg/s"/>     <!-- centidegrees per second -->
     <xs:enumeration value="degE5"/>    <!-- degrees * 10E5 -->
     <xs:enumeration value="degE7"/>    <!-- degrees * 10E7 -->
-    <xs:enumeration value="rpm"/>      <!-- rotations per second -->
+    <xs:enumeration value="rpm"/>      <!-- rotations per minute -->
     <!-- electricity -->
     <xs:enumeration value="V"/>        <!-- Volt -->
     <xs:enumeration value="cV"/>       <!-- centi-Volt -->
@@ -124,6 +125,7 @@
     <!-- pressure -->
     <xs:enumeration value="Pa"/>       <!-- Pascal -->
     <xs:enumeration value="hPa"/>      <!-- hecto-Pascal -->
+    <xs:enumeration value="kPa"/>      <!-- kilo-Pascal -->
     <xs:enumeration value="mbar"/>     <!-- millibar -->
     <!-- ratio -->
     <xs:enumeration value="%"/>        <!-- percent -->
@@ -141,6 +143,8 @@
     <xs:enumeration value="bits/s"/>   <!-- bits per second -->
     <xs:enumeration value="pix"/>      <!-- pixels -->
     <xs:enumeration value="dpix"/>     <!-- decipixels -->
+    <!-- flow -->
+    <xs:enumeration value="g/min"/>    <!-- grams/minute -->
   </xs:restriction>
 </xs:simpleType>
 
@@ -234,6 +238,7 @@
             <xs:element ref="entry" maxOccurs="unbounded"/>
         </xs:sequence>
         <xs:attribute ref="name" use="required"/>
+        <xs:attribute ref="bitmask" type="xs:boolean" default="false"/>
     </xs:complexType>
 </xs:element>
 

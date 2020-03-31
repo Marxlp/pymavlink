@@ -47,7 +47,10 @@ parser.add_argument("--source-component", type=int, default=None, help="filter b
 parser.add_argument("--link", type=int, default=None, help="filter by comms link ID")
 parser.add_argument("--verbose", action='store_true', help="Dump messages in a much more verbose (but non-parseable) format")
 parser.add_argument("--mav10", action='store_true', help="parse as MAVLink1")
+parser.add_argument("--reduce", type=int, default=0, help="reduce streaming messages")
 parser.add_argument("log", metavar="LOG")
+parser.add_argument("--profile", action='store_true', help="run the Yappi python profiler")
+
 args = parser.parse_args()
 
 if not args.mav10:
@@ -58,6 +61,9 @@ import inspect
 from pymavlink import mavutil
 
 
+if args.profile:
+    import yappi    # We do the import here so that we won't barf if run normally and yappi not available
+    yappi.start()
 
 filename = args.log
 mlog = mavutil.mavlink_connection(filename, planner_format=args.planner,
@@ -82,6 +88,32 @@ ext = os.path.splitext(filename)[1]
 isbin = ext in ['.bin', '.BIN', '.px4log']
 islog = ext in ['.log', '.LOG'] # NOTE: "islog" does not mean a tlog
 istlog = ext in ['.tlog', '.TLOG']
+
+# list of msgs to reduce in rate when --reduce is used
+reduction_msgs = ['NKF*', 'XKF*', 'IMU*', 'AHR2', 'BAR*', 'ATT', 'BAT*', 'CTUN', 'NTUN', 'GP*', 'IMT*', 'MAG*', 'PL', 'POS', 'POW*', 'RATE', 'RC*', 'RFND', 'UBX*', 'VIBE', 'NKQ*', 'MOT*', 'CTRL', 'FTS*', 'DSF', 'CST*', 'LOS*', 'UWB*']
+reduction_yes = set()
+reduction_no = set()
+reduction_count = {}
+
+def reduce_msg(mtype, reduction_ratio):
+    '''return True if this msg should be discarded by reduction'''
+    global reduction_count, reduction_msgs, reduction_yes, reduction_no
+    if mtype in reduction_no:
+        return False
+    if not mtype in reduction_yes:
+        for m in reduction_msgs:
+            if fnmatch.fnmatch(mtype, m):
+                reduction_yes.add(mtype)
+                reduction_count[mtype] = 0
+                break
+        if not mtype in reduction_yes:
+            reduction_no.add(mtype)
+            return False
+    reduction_count[mtype] += 1
+    if reduction_count[mtype] == reduction_ratio:
+        reduction_count[mtype] = 0
+        return False
+    return True
 
 if args.csv_sep == "tab":
     args.csv_sep = "\t"
@@ -145,7 +177,10 @@ if isbin and args.format == 'csv':
 while True:
     m = mlog.recv_match(blocking=args.follow, type=match_types)
     if m is None:
-        # FIXME: Make sure to output the last CSV message before dropping out of this loop
+        # write the final csv line before exiting
+        if args.format == 'csv' and csv_out:
+          csv_out[0] = "{:.8f}".format(last_timestamp)
+          print(args.csv_sep.join(csv_out))
         break
     available_types.add(m.get_type())
     if isbin and m.get_type() == "FMT" and args.format == 'csv':
@@ -153,6 +188,9 @@ while True:
             fields += m.Columns.split(',')
             csv_out = ["" for x in fields]
             print(args.csv_sep.join(fields))
+
+    if args.reduce and reduce_msg(m.get_type(), args.reduce):
+        continue
 
     if output is not None:
         if (isbin or islog) and m.get_type() == "FMT":
@@ -277,3 +315,7 @@ while True:
 if args.show_types:
     for msgType in available_types:
         print(msgType)
+
+if args.profile:
+    yappi.get_func_stats().print_all()
+    yappi.get_thread_stats().print_all()
